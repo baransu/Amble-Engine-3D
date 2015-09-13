@@ -35,12 +35,12 @@ class Mesh
 {
 public:
 	Mesh(std::vector<Vertex> vertices, std::vector<GLuint> indices, std::vector<Texture> textures);
-	//~Mesh()
-	//{
-	//	glDeleteVertexArrays(1, &this->VAO);
-	//	glDeleteBuffers(1, &this->VBO);
-	//	glDeleteBuffers(1, &this->EBO);
-	//}
+	/*~Mesh()
+	{
+		glDeleteVertexArrays(1, &this->VAO);
+		glDeleteBuffers(1, &this->VBO);
+		glDeleteBuffers(1, &this->EBO);
+	}*/
 	void draw(const Shader &shader);
 
 	//mesh data

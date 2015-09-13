@@ -3,6 +3,10 @@
 #include <iostream>
 #include <GL/glew.h>
 
+#include <glm.hpp>
+#include <gtc\matrix_transform.hpp>
+#include <gtc\type_ptr.hpp>
+
 #include "utils/File.h"
 
 class Shader
@@ -11,6 +15,7 @@ public:
 	Shader(const char* vertexPath, const char* fragmentPath);
 	~Shader();
 
+	void setUniformMatrix4fv(const GLchar* name, glm::mat4 value);
 	void setUniform4f(const GLchar* name, float x, float y, float z, float w);
 	void setUniform3f(const GLchar* name, float x, float y, float z);
 	void setUniform1f(const GLchar* name, float value);

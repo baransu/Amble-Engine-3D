@@ -77,6 +77,11 @@ GLint Shader::getUniformLocation(const GLchar* name)
 	return glGetUniformLocation(m_ShaderProgram, name);
 }
 
+void Shader::setUniformMatrix4fv(const GLchar* name, glm::mat4 value)
+{
+	glUniformMatrix4fv(this->getUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+}
+
 void Shader::setUniform4f(const GLchar* name, float x, float y, float z, float w)
 {
 	glUniform4f(this->getUniformLocation(name), x, y, z, w);

@@ -3,28 +3,28 @@
 #include <GL/glew.h>
 #include <GLFW\glfw3.h>
 
+#include <array>
+
+#include <glm.hpp>
+#include <gtc\matrix_transform.hpp>
+#include <gtc\type_ptr.hpp>
+
 #include "Shader.h"
+#include "Camera.h"
 
 class Skybox
 {
 public:
-	//Skybox(const Shader &shader);
-	~Skybox();
+	Skybox(const char* vertexShaderPath, const char* fragmentShaderPath);
+	//~Skybox();
 
-	void draw();
+	void draw(Camera &camera, const GLuint &cubemapTexture);
 
 private:
 	void setup();
-	Shader m_Shader;
-	//GLfloat m_QuadVertices[] = {
-	//	// Positions   // TexCoords
-	//	-1.0f,  1.0f, 0.0f, 1.0f,
-	//	-1.0f, -1.0f, 0.0f, 0.0f,
-	//	1.0f, -1.0f, 1.0f, 0.0f,
 
-	//	-1.0f,  1.0f, 0.0f, 1.0f,
-	//	1.0f, -1.0f, 1.0f, 0.0f,
-	//	1.0f,  1.0f, 1.0f, 1.0f
-	//};
+	Shader m_Shader;
+	GLuint m_VAO, m_VBO;
+	GLfloat m_Vertices[108];
 };
 

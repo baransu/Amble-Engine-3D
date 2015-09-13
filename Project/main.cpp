@@ -12,6 +12,7 @@
 #include "Source\Camera.h"
 #include "Source\Shader.h"
 #include "Source\Model.h"
+#include "Source\Skybox.h"
 #include "Source\utils\FPS.h"
 #include "Source\utils\Time.h"
 
@@ -93,10 +94,9 @@ int main()
 	Shader shader("Data/shaders/normal.vert", "Data/shaders/normal.frag");
 	//Shader lampShader("res/shaders/lampShader.vert", "res/shaders/lampShader.frag");
 	Shader fbShader("Data/shaders/fb.vert", "Data/shaders/fb.frag");
-	Shader skyboxShader("Data/shaders/skybox.vert", "Data/shaders/skybox.frag");
-	Model mouseModel("Data/models/mouse/mouselowpoly.obj");
+	Model mouseModel("Data/models/nanosuit/nanosuit.obj");
 	//legacy
-
+	Skybox skybox("Data/shaders/skybox.vert", "Data/shaders/skybox.frag");
 
 
 	std::vector<const GLchar*> faces;
@@ -115,7 +115,6 @@ int main()
 	faces.push_back("Data/cubemaps/sea/sea_bk.jpg");
 	faces.push_back("Data/cubemaps/sea/sea_ft.jpg");
 	GLuint cubemapTexture = loadCubemap(faces);
-	skyboxShader.setUniform1i("skybox", 0);
 	//// Set up vertex data (and buffer(s)) and attribute pointers
 	GLfloat vertices[] = {
 		-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
@@ -161,62 +160,6 @@ int main()
 		-0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f
 	};
 
-	GLfloat skyboxVertices[] = {
-		// Positions          
-		-1.0f, 1.0f, -1.0f,
-		-1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f, 1.0f, -1.0f,
-		-1.0f, 1.0f, -1.0f,
-
-		-1.0f, -1.0f, 1.0f,
-		-1.0f, -1.0f, -1.0f,
-		-1.0f, 1.0f, -1.0f,
-		-1.0f, 1.0f, -1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f, -1.0f, 1.0f,
-
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-
-		-1.0f, -1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f,
-		-1.0f, -1.0f, 1.0f,
-
-		-1.0f, 1.0f, -1.0f,
-		1.0f, 1.0f, -1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f, -1.0f,
-
-		-1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f, 1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f
-	};
-
-	GLuint skyboxVAO, skyboxVBO;
-	glGenVertexArrays(1, &skyboxVAO);
-	glGenBuffers(1, &skyboxVBO);
-	glBindVertexArray(skyboxVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-	glBindVertexArray(0);
-
-
 	GLfloat quadVertices[] = {   // Vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
 		// Positions   // TexCoords
 		-1.0f, 1.0f, 0.0f, 1.0f,
@@ -239,7 +182,6 @@ int main()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
 	glBindVertexArray(0);
-
 
 	GLuint VBO, VAO;
 	glGenVertexArrays(1, &VAO);
@@ -328,9 +270,7 @@ int main()
 		//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		glDepthMask(GL_TRUE);
 		shader.use();
-		GLint viewPosLoc = glGetUniformLocation(shader.m_ShaderProgram, "viewPos");
-		glUniform3f(viewPosLoc, camera.position.x, camera.position.y, camera.position.z);	
-
+		shader.setUniform3f("viewPos", camera.position.x, camera.position.y, camera.position.z);
 		//glUniform1f(glGetUniformLocation(shader.m_ShaderProgram, "material.shininess"), 32.0f);
 		//// Directional light
 		//glUniform3f(glGetUniformLocation(shader.m_ShaderProgram, "dirLight.direction"), -0.2f, -1.0f, -0.3f);
@@ -346,14 +286,12 @@ int main()
 		//glUniform1f(glGetUniformLocation(shader.m_ShaderProgram, "pointLight.linear"), 0.09);
 		//glUniform1f(glGetUniformLocation(shader.m_ShaderProgram, "pointLight.quadratic"), 0.032);
 
-		GLint viewLoc = glGetUniformLocation(shader.m_ShaderProgram, "view");
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		shader.setUniformMatrix4fv("view", camera.getViewMatrix());
 		//glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getLookAtTargetViewMatrix(glm::vec3(0,-3,-10))));
 
 		shader.setUniform3f("lightPos", 0, 2, -5);
 
-		GLint projectionLoc = glGetUniformLocation(shader.m_ShaderProgram, "projection");
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
+		shader.setUniformMatrix4fv("projection", camera.getProjectionMatrix());
 
 		glm::mat4 model;
 		model = glm::translate(model, glm::vec3(0.0f, -1.75f, -3.0f));
@@ -362,8 +300,7 @@ int main()
 		model = glm::rotate(model, angle * (GLfloat)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		//model = glm::rotate(model, 180.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-		GLint modelLoc = glGetUniformLocation(shader.m_ShaderProgram, "model");
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		shader.setUniformMatrix4fv("model", model);
 
 		// Bind diffuse map
 		glActiveTexture(GL_TEXTURE0);
@@ -388,20 +325,10 @@ int main()
 
 		shader.disable();
 
-		glDepthFunc(GL_LEQUAL);
-		skyboxShader.use();
-		viewLoc = glGetUniformLocation(skyboxShader.m_ShaderProgram, "view");
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(glm::mat4(glm::mat3(camera.getViewMatrix()))));
-		projectionLoc = glGetUniformLocation(skyboxShader.m_ShaderProgram, "projection");
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
-		glBindVertexArray(skyboxVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		glBindVertexArray(0);
-		skyboxShader.disable();
 
-		//fb stuff
+		skybox.draw(camera, cubemapTexture);
+
+		//framebuffer stuff
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		// Clear all relevant buffers
