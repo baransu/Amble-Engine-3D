@@ -98,7 +98,8 @@ int main()
 	//Model mouseModel("Data/models/mouse/mouselowpoly.obj");
 	//Shader lampShader("res/shaders/lampShader.vert", "res/shaders/lampShader.frag");
 	Shader fbShader("Data/shaders/hdr.vert", "Data/shaders/hdr.frag");
-	//legacy
+	
+	Shader simpleDepthShader("Data/shaders/simpleDepthShader.vert", "Data/shaders/simpleDepthShader.frag");
 	
 	Skybox skybox("Data/shaders/working/skybox.vert", "Data/shaders/working/skybox.frag");
 
@@ -110,7 +111,7 @@ int main()
 	PointLight pointLight4("Data/shaders/working/lampShader.vert", "Data/shaders/working/lampShader.frag");
 
 	glm::vec3 quadPos = glm::vec3(0.0f, -3.0f, -3.0f);
-	Quad quad("Data/shaders/working/monkeyTexture.vert", "Data/shaders/working/monkeyTexture.frag", quadPos, glm::vec3(10,10,10), glm::vec3(0));
+	Quad quad("Data/shaders/working/monkeyTexture.vert", "Data/shaders/working/monkeyTexture.frag", "Data/shaders/simpleDepthShader.vert", "Data/shaders/simpleDepthShader.frag", quadPos, glm::vec3(10, 10, 10), glm::vec3(0));
 
 	//Shader monkeyShader("Data/shaders/monkey.vert", "Data/shaders/monkey.frag");
 	//Model monkeyModel("Data/models/monkey.obj");
@@ -267,7 +268,7 @@ int main()
 	};
 
 	glm::vec3 lightColors[] = {
-		glm::vec3(0.5f, 0.0f, 0.0f),
+		glm::vec3(1.0f, 1.0f, 1.0f),
 		glm::vec3(0.0f, 0.0f, 0.5f),
 		glm::vec3(2.0f, 2.0f, 1.0f),
 		glm::vec3(0.0f, 0.5f, 0.0f)
@@ -411,6 +412,35 @@ int main()
 
 	//fbShader.setUniform1i("skybox", 0);
 
+	//SHADOWS
+	const GLuint shadowResolution = 1024;
+	GLuint depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+
+	GLuint depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowResolution, shadowResolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	GLfloat borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	GLfloat near_plane = 1.0f, far_plane = 25.0f;
+	glm::mat4 lightView = glm::lookAt(lightPos[0], camera.forward * far_plane, camera.up);
+	glm::mat4 lightProjection = glm::perspective(120.0f, (float)shadowResolution/(float)shadowResolution, near_plane, far_plane);
+	//glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.f, near_plane, far_plane);
+	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
 	//window loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -424,6 +454,10 @@ int main()
 		//===================
 		fps.update();
 		time.update();
+		
+		std::cout << camera.forward.x * far_plane << " | " << camera.forward.y * far_plane << " | " << camera.forward.z * far_plane << std::endl;
+		lightView = glm::lookAt(lightPos[0], camera.forward * far_plane + camera.position, glm::vec3(0,1,0));
+		lightSpaceMatrix = lightProjection * lightView;
 		//camera
 		//pointLight.position.x = sin(glfwGetTime()) * 5.0f;
 		//pointLight.position.z = cos(glfwGetTime()) * 5.0f;
@@ -432,6 +466,78 @@ int main()
 		//===================
 		glm::mat4 model;
 
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		//shadow buffer render
+		glViewport(0, 0, shadowResolution, shadowResolution);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_FRONT);
+
+		//render to shadow buffer
+		//pointLight1.draw(camera);
+		//pointLight2.draw(camera);
+		//pointLight3.draw(camera);
+		//pointLight4.draw(camera);
+
+		//glm::mat4 model;
+
+		//SPHERE 1
+		simpleDepthShader.use();
+		simpleDepthShader.setUniformMatrix4fv("lightSpaceMatrix", lightSpaceMatrix);
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(-6.0f, 0.0f, 0.0f));
+		simpleDepthShader.setUniformMatrix4fv("model", model);
+		sphere.draw(simpleDepthShader);
+
+		//SPHERE 2
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(-2.0f, 0.0f, 0.0f));
+		simpleDepthShader.setUniformMatrix4fv("model", model);
+		sphere.draw(simpleDepthShader);
+
+		//SPHERE 2
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(2.0f, 0.0f, 0.0f));
+		simpleDepthShader.setUniformMatrix4fv("model", model);
+		sphere.draw(simpleDepthShader);
+
+		//SPHERE 2
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(6.0f, 0.0f, 0.0f));
+		simpleDepthShader.setUniformMatrix4fv("model", model);
+		sphere.draw(simpleDepthShader);
+
+		simpleDepthShader.disable();
+
+		////up
+		//quad.rotation = glm::vec3(1, 0, 0);
+		//quad.position = glm::vec3(0.0f, 6.0f, 2.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+		////down
+		//quad.rotation = glm::vec3(1, 0, 0);
+		//quad.position = glm::vec3(0.0f, -10.0f, 2.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+		////left
+		//quad.rotation = glm::vec3(0, 1, 0);
+		//quad.position = glm::vec3(-8.0f, -3.0f, 4.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+		////right
+		//quad.rotation = glm::vec3(0, 1, 0);
+		//quad.position = glm::vec3(8.0f, -3.0f, 4.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+		////back
+		//quad.rotation = glm::vec3(0, 0, 1);
+		//quad.position = glm::vec3(0.0f, -3.0f, -6.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+		////front
+		//quad.rotation = glm::vec3(0, 0, 1);
+		//quad.position = glm::vec3(0.0f, -3.0f, 12.0f);
+		//quad.drawDepth(lightSpaceMatrix);
+
+		//skybox.draw(camera, enviromentMap);
+
+		//reflections
 		glm::vec3 camPos = camera.position;
 		float fov = camera.fov;
 		camera.fov = 90.0f;
@@ -451,10 +557,8 @@ int main()
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, enviromentMap, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glEnable(GL_DEPTH_TEST);
-			glEnable(GL_CULL_FACE);
 			glDepthMask(GL_TRUE);
-
+			glCullFace(GL_BACK);
 			// +X (right)
 			// -X (left)
 			// +Y (top)
@@ -501,9 +605,9 @@ int main()
 
 
 			pointLight1.draw(camera);
-			pointLight2.draw(camera);
-			pointLight3.draw(camera);
-			pointLight4.draw(camera);
+			//pointLight2.draw(camera);
+			//pointLight3.draw(camera);
+			//pointLight4.draw(camera);
 
 			//SPHERE 1
 			sphereShaderReflection.use();
@@ -530,6 +634,8 @@ int main()
 			sphereShaderReflection.disable();
 
 			sphereShader.use();
+			sphereShader.setUniform1i("shadowMap", 0);
+			sphereShader.setUniformMatrix4fv("lightSpaceMatrix", lightSpaceMatrix);
 			sphereShader.setUniformMatrix4fv("view", camera.getViewMatrix());
 			sphereShader.setUniformMatrix4fv("projection", camera.getProjectionMatrix());
 			sphereShader.setUniform3fv("lightColors", 4, &lightColors[0][0]);
@@ -544,6 +650,8 @@ int main()
 			sphereShader.setUniform3f("material.specular", 0.2f, 0.2f, 0.2f);
 			sphereShader.setUniform1f("material.shininess", 16.0f);
 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, depthMap);
 			sphere.draw(sphereShader);
 
 			//SPHERE 2
@@ -564,58 +672,65 @@ int main()
 			sphereShader.setUniform1f("material.shininess", 16.0f);
 			sphere.draw(sphereShader);
 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+
 			sphereShader.disable();
 
-			////up
-			//quad.rotation = glm::vec3(1, 0, 0);
-			//quad.position = glm::vec3(0.0f, 6.0f, 2.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
-			////down
-			//quad.rotation = glm::vec3(1, 0, 0);
-			//quad.position = glm::vec3(0.0f, -10.0f, 2.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
-			////left
-			//quad.rotation = glm::vec3(0, 1, 0);
-			//quad.position = glm::vec3(-8.0f, -3.0f, 4.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
-			////right
-			//quad.rotation = glm::vec3(0, 11, 0);
-			//quad.position = glm::vec3(8.0f, -3.0f, 4.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
-			////back
-			//quad.rotation = glm::vec3(0, 0, 1);
-			//quad.position = glm::vec3(0.0f, -3.0f, -6.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
-			////front
-			//quad.rotation = glm::vec3(0, 0, 1);
-			//quad.position = glm::vec3(0.0f, -3.0f, 12.0f);
-			//quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+			//up
+			quad.rotation = glm::vec3(1, 0, 0);
+			quad.position = glm::vec3(0.0f, 6.0f, 2.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
+			//down
+			quad.rotation = glm::vec3(1, 0, 0);
+			quad.position = glm::vec3(0.0f, -10.0f, 2.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
+			//left
+			quad.rotation = glm::vec3(0, 1, 0);
+			quad.position = glm::vec3(-8.0f, -3.0f, 4.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
+			//right
+			quad.rotation = glm::vec3(0, 11, 0);
+			quad.position = glm::vec3(8.0f, -3.0f, 4.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
+			//back
+			quad.rotation = glm::vec3(0, 0, 1);
+			quad.position = glm::vec3(0.0f, -3.0f, -6.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
+			//front
+			quad.rotation = glm::vec3(0, 0, 1);
+			quad.position = glm::vec3(0.0f, -3.0f, 12.0f);
+			quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 
 			//skybox.draw(camera, cubemapTexture);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		}
-
-		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_CULL_FACE);
 		camera.position = camPos;
 		camera.fov = fov;
 		camera.pitch = pitch;
 		camera.yaw = yaw;
 		camera.roll = roll;
-
 		camera.m_Near = near;
 		glViewport(0, 0, WIDTH, HEIGHT);
 		camera.setAspectRatio((float)WIDTH/(float)HEIGHT);
+
 		//enviroment map end
 		//==================================
+		
+		//================================
 		//normal rendering 
+
+
+		glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_CULL_FACE);
+
+
 		pointLight1.draw(camera);
-		pointLight2.draw(camera);
-		pointLight3.draw(camera);
-		pointLight4.draw(camera);
+		//pointLight2.draw(camera);
+		//pointLight3.draw(camera);
+		//pointLight4.draw(camera);
 
 		//glm::mat4 model;
 
@@ -644,11 +759,15 @@ int main()
 		sphereShaderReflection.disable();
 
 		sphereShader.use();
+		sphereShader.setUniform1i("shadowMap", 0);
+		sphereShader.setUniformMatrix4fv("lightSpaceMatrix", lightSpaceMatrix);
 		sphereShader.setUniformMatrix4fv("view", camera.getViewMatrix());
 		sphereShader.setUniformMatrix4fv("projection", camera.getProjectionMatrix());
 		sphereShader.setUniform3fv("lightColors", 4, &lightColors[0][0]);
 		sphereShader.setUniform3fv("lightPositions", 4, &lightPos[0][0]);
 		sphereShader.setUniform3f("viewPos", camera.position.x, camera.position.y, camera.position.z);
+
+
 
 		//SPHERE 2
 		model = glm::mat4();
@@ -657,6 +776,9 @@ int main()
 		sphereShader.setUniform3f("material.diffuse", 0.3f, 0.3f, 0.3f);
 		sphereShader.setUniform3f("material.specular", 0.2f, 0.2f, 0.2f);
 		sphereShader.setUniform1f("material.shininess", 16.0f);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
 
 		sphere.draw(sphereShader);
 
@@ -678,40 +800,45 @@ int main()
 		sphereShader.setUniform1f("material.shininess", 16.0f);
 		sphere.draw(sphereShader);
 
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
 		sphereShader.disable();
 
 		//up
 		quad.rotation = glm::vec3(1, 0, 0);
 		quad.position = glm::vec3(0.0f, 6.0f, 2.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 		//down
 		quad.rotation = glm::vec3(1, 0, 0);
 		quad.position = glm::vec3(0.0f, -10.0f, 2.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 		//left
 		quad.rotation = glm::vec3(0, 1, 0);
 		quad.position = glm::vec3(-8.0f, -3.0f, 4.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 		//right
 		quad.rotation = glm::vec3(0, 11, 0);
 		quad.position = glm::vec3(8.0f, -3.0f, 4.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 		//back
 		quad.rotation = glm::vec3(0, 0, 1);
 		quad.position = glm::vec3(0.0f, -3.0f, -6.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 		//front
 		quad.rotation = glm::vec3(0, 0, 1);
 		quad.position = glm::vec3(0.0f, -3.0f, 12.0f);
-		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors);
+		quad.draw(camera, quadDiffuseMap, 4, lightPos, lightColors, lightSpaceMatrix, depthMap);
 
 		skybox.draw(camera, enviromentMap);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		//=====================================================================
 		//framebuffer stuff
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		
 		// Clear all relevant buffers
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // Set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
 		glClear(GL_COLOR_BUFFER_BIT);
 		glDisable(GL_DEPTH_TEST);

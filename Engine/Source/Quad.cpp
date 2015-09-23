@@ -1,7 +1,8 @@
 #include "Quad.h"
 
 
-Quad::Quad(const char* vertexPath, const char* fragmentPath, glm::vec3 position, glm::vec3 scale, glm::vec3 rotation) : m_Shader(vertexPath, fragmentPath)
+Quad::Quad(const char* vertexPath, const char* fragmentPath, const char* depthVertexShaderPath, const char* depthFragmentShaderPath, glm::vec3 position, glm::vec3 scale, glm::vec3 rotation)
+	: m_Shader(vertexPath, fragmentPath), m_DepthShader(depthVertexShaderPath, depthFragmentShaderPath)
 {
 	this->position = position;
 	this->scale = scale;
@@ -13,7 +14,7 @@ Quad::~Quad()
 {
 }
 
-void Quad::draw(Camera &camera, const GLuint &diffuseMap, int lightCount, const glm::vec3 lightPositions[], const glm::vec3 lightColors[])
+void Quad::draw(Camera &camera, const GLuint &diffuseMap, int lightCount, const glm::vec3 lightPositions[], const glm::vec3 lightColors[], const glm::mat4 &lightSpaceMatrix, const GLuint &shadowMap)
 {
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
@@ -28,7 +29,9 @@ void Quad::draw(Camera &camera, const GLuint &diffuseMap, int lightCount, const 
 	this->m_Shader.setUniformMatrix4fv("model", model);
 
 	this->m_Shader.setUniformMatrix4fv("view", camera.getViewMatrix());
-	
+	this->m_Shader.setUniformMatrix4fv("lightSpaceMatrix", lightSpaceMatrix);
+	this->m_Shader.setUniform1i("material.diffuse", 0);
+	this->m_Shader.setUniform1i("shadowMap", 1);
 	this->m_Shader.setUniformMatrix4fv("projection", camera.getProjectionMatrix());
 	this->m_Shader.setUniform3f("lightColors[0]", 0.3f, 0.3f, 0.3f);
 	this->m_Shader.setUniform3f("lightColors[1]", 0.5f, 0.5f, 0.5f);
@@ -42,6 +45,9 @@ void Quad::draw(Camera &camera, const GLuint &diffuseMap, int lightCount, const 
 	//bind texture
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, shadowMap);
 	
 	//draw
 	glBindVertexArray(this->m_VAO);
@@ -51,9 +57,29 @@ void Quad::draw(Camera &camera, const GLuint &diffuseMap, int lightCount, const 
 	//unbind texture
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, 0);
 	
 	this->m_Shader.disable();
+}
 
+void Quad::drawDepth(glm::mat4 lightSpaceMatrix)
+{
+	this->m_DepthShader.use();
+	glm::mat4 model;
+	model = glm::translate(model, this->position);
+	model = glm::scale(model, this->scale);
+	//GLfloat angle = 30;
+	model = glm::rotate(model, (GLfloat)-90.0f, this->rotation);
+	this->m_DepthShader.setUniformMatrix4fv("model", model);
+
+	this->m_DepthShader.setUniformMatrix4fv("lightSpaceMatrix", lightSpaceMatrix);
+
+	glBindVertexArray(this->m_VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+	this->m_DepthShader.use();
 }
 
 void Quad::setup()

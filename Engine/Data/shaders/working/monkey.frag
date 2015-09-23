@@ -5,6 +5,7 @@ in VS_OUT {
     vec3 FragPos;
     vec3 Normal;
     vec2 TexCoords;
+    vec4 FragPosLightSpace;
 } fs_in;
 
 struct Material 
@@ -16,13 +17,37 @@ struct Material
 
 uniform Material material; 
 
-uniform vec3 lightPositions[3];
-uniform vec3 lightColors[3];
+uniform sampler2D shadowMap;
+
+uniform vec3 lightPositions[4];
+uniform vec3 lightColors[4];
 uniform vec3 viewPos;
 
 const float constant = 1.0f;
 const float linear = 0.09f;
 const float quadratic = 0.032f;
+
+float ShadowCalculation(vec4 fragPosLightSpace)
+{
+    //perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    //transform to range [0,1]
+    projCoords = projCoords * 0.5f + 0.5f;
+    //get closest depth value from light perspecive 
+    float closestDepth = texture(shadowMap, projCoords.xy).r;
+
+    float currentDepth = projCoords.z;
+
+    vec3 lightDir = normalize(lightPositions[0] - fs_in.FragPos);
+    vec3 normal = normalize(fs_in.Normal);
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    float shadow = currentDepth - bias > closestDepth ? 1.0f : 0.0f;
+
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
+
+    return shadow;
+}
 
 vec3 BlinnPhong(vec3 lightPos, vec3 lightColor)
 {
@@ -48,7 +73,8 @@ vec3 BlinnPhong(vec3 lightPos, vec3 lightColor)
     diffuse *= attenuation;
     specular *= attenuation;
     
-    return diffuse + specular + ambient;
+    float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
+    return (ambient + (1.0f - shadow) * (diffuse + specular));
 }
 
 void main()
@@ -57,11 +83,11 @@ void main()
 
     vec3 lighting = vec3(0);
 
-    for(int i = 0; i < 4; i++)
-        lighting += BlinnPhong(lightPositions[i], lightColors[i]);
+    //for(int i = 0; i < 4; i++)
+        lighting += BlinnPhong(lightPositions[0], lightColors[0]);
 
     color *= lighting;
-    color = pow(color, vec3(1.0/2.2));
+    //color = pow(color, vec3(1.0/2.2));
     FragColor = vec4(color, 1.0f);
 
 }

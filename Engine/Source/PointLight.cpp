@@ -11,7 +11,6 @@ PointLight::~PointLight()
 
 void PointLight::draw(Camera camera)
 {
-	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 	glDepthFunc(GL_LESS);
 	this->m_Shader.use();
